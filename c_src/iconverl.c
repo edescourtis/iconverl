@@ -71,6 +71,7 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     iconv_t conv_desc;
     iconv_t *conv_desc_ref;
     int res;
+    ERL_NIF_TERM resource;
 
     assert(argc == 2);
     assert(enif_get_list_length(env, argv[0], &to_len));
@@ -145,7 +146,13 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     conv_desc_ref = (iconv_t *)enif_alloc_resource(iconv_cd_type, sizeof(iconv_t));
     *conv_desc_ref = conv_desc;
 
-    return enif_make_resource(env, conv_desc_ref);
+    enif_free(to);
+    enif_free(from);
+
+    resource = enif_make_resource(env, conv_desc_ref);
+    enif_release_resource(conv_desc_ref);
+
+    return resource;
 }
 
 
