@@ -3,7 +3,7 @@
 
 -export([open/2, conv/2, close/1]).
 
--spec open(string() | binary(), string() | binary()) -> {ok, term()}.
+-spec open(string() | binary(), string() | binary()) -> {ok, any()}.
 open(ToCode, FromCode) when is_list(ToCode) or is_binary(ToCode),
     is_list(FromCode) or is_binary(FromCode) ->
     case iconverl:open(ToCode, FromCode) of
@@ -13,10 +13,10 @@ open(ToCode, FromCode) when is_list(ToCode) or is_binary(ToCode),
             {ok, X}
     end.
 
--spec conv(term(), binary()) -> {ok, binary} | {error, atom()}.
+-spec conv(any(), binary()) -> {ok, binary} | {error, any()}.
 conv(Cd, Input) ->
     iconverl:conv(Cd, Input).
 
--spec close(term()) -> ok | {error, atom()}.
+-spec close(any()) -> ok | {error, any()}.
 close(_Cd) ->
     ok.
