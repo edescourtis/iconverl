@@ -95,7 +95,7 @@ conv(To, From, Data) when is_list(To) or is_binary(To),
     end.
 
 
--spec reset(cd()) -> ok | {error, integer()}.
+-spec reset(cd()) -> ok | {error, atom()} | {error, integer()}.
 reset(_Cd) ->
     erlang:nif_error(not_loaded).
 
