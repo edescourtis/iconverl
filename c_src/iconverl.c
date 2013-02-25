@@ -57,9 +57,9 @@ static int handle_load(ErlNifEnv *env, void **priv, ERL_NIF_TERM load_info);
 static int handle_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
 
 static ErlNifFunc nif_funcs[] = {
-    {"open",  2, iconv_open_nif  },
-    {"iconv", 2, iconv_iconv_nif },
-    {"reset", 1, iconv_reset_nif }
+    {"open_priv",      2, iconv_open_nif  },
+    {"iconv",          2, iconv_iconv_nif },
+    {"reset",          1, iconv_reset_nif }
 };
 
 static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -74,8 +74,13 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ERL_NIF_TERM resource;
 
     assert(argc == 2);
-    assert(enif_get_list_length(env, argv[0], &to_len));
-    assert(enif_get_list_length(env, argv[1], &from_len));
+    if(!enif_get_list_length(env, argv[0], &to_len)){
+        return make_error_tuple_from_string(env, "to_not_a_list");
+    }
+
+    if(!enif_get_list_length(env, argv[1], &from_len)){
+        return make_error_tuple_from_string(env, "from_not_a_list");
+    }
 
     to = (char *)enif_alloc(++to_len);
     if(to == NULL){
