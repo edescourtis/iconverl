@@ -17,3 +17,9 @@ conv3_test() ->
                  iconverl:conv("ucs-2be", "utf-8", <<"test">>)),
     ?assertEqual({error, eilseq}, iconverl:conv("ucs-2be", "utf-8", <<129,129>>)).
 
+chunk_test() ->
+    {ok, Utf8Bin1} = iconverl:conv("utf-8", "latin1", <<"test", 16#e9, "test">>),
+    Utf8Bin2 = binary:part(Utf8Bin1, 0, 5),
+    CD = iconverl:open("latin1", "utf-8"),
+    ?assertMatch({more, _}, iconverl:chunk(CD, Utf8Bin2)),
+    ?assertMatch({done, _}, iconverl:chunk(CD, Utf8Bin1)).
