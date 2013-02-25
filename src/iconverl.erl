@@ -68,10 +68,12 @@ chunk(CD, Data, Acc) when is_binary(Data), is_list(Acc) ->
             Other
     end.
 
--spec chunk(cd(), iodata()) -> {iodata(), done} | {iodata(), more} | {error, atom()}.
+-spec chunk(cd(), iodata()) -> {done, iodata()} | {more, iodata()} | {error, atom()}.
 chunk(CD, Data) when is_binary(Data) or is_list(Data)  ->
     chunk(CD, iolist_to_binary(Data), []).
 
+
+%% more means try again with the same data concatenated with more input
 -spec conv(cd(), iodata()) -> {ok, binary()} | {error, atom()}.
 conv(CD, Data) when is_binary(Data) or is_list(Data)  ->
     case chunk(CD, Data) of
