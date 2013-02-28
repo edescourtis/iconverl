@@ -1,19 +1,9 @@
-<pre>
-                                   ____  ___  _____  _  _  _  _  ____  ____  __    
-                                  (_  _)/ __)(  _  )( \( )( \/ )( ___)(  _ \(  )  
-                                   _)(_( (__  )(_)(  )  (  \  /  )__)  )   / )(__ 
-                                  (____)\___)(_____)(_)\_)  \/  (____)(_)\_)(____)
-                                               NOW WITH STREAMING !!!
-</pre>
-
 About
 =====
 
-I needed access to iconv from glibc. After trying the very buggy erlang-iconv (it segfaults). I tried iconverl it seemed to work great, until we (my colleague and I) ran into some problems where it would sometimes return {error, eilseq} instead of the result for the same input (one that was previously successful). 
+This new version adds support for streaming. You can now have low level access to iconverl:iconv/2 in case you really need it or you can use the iconverl:chunk/2 function for a simpler interface. Currently only two implementations are recommended this one and eiconv. Backwards compatibility with erlang-iconv, the old iconverl and eiconv is also provided. So you can use this library as a drop in replacement for existing ones.
 
-This prompted me to write a replacement. I tried to get it pulled by the original author since it implements an almost identical interface. But he decided that there was no bug since he couldn't reproduce it on his system!? This has now occured on two completely different environments (Ubuntu 12.04 LTS 64bit and Gentoo). 
-
-This new version adds support for streaming. You can now have low level access to iconverl:iconv/2 in case you really need it or you can use the iconverl:chunk/2 function for a simpler interface.
+Note that this is a complete rewrite of iamaleksey/iconverl which has significant improvements.
 
 Compilation
 ===========
