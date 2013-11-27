@@ -34,7 +34,12 @@
 open(To, From) when is_binary(To), is_binary(From) ->
     open(unicode:characters_to_list(To), unicode:characters_to_list(From));
 open(To, From) when is_list(To), is_list(From) ->
-    open_priv(To, From).
+    open_priv(To, From);
+open(To, From) when is_list(To), is_binary(From) ->
+    open(To, unicode:characters_to_list(From));
+open(To, From) when is_binary(To), is_list(From) ->
+    open(unicode:characters_to_list(To), From).
+
 
 open_priv(To, From) when is_list(To), is_list(From) ->
     erlang:nif_error(not_loaded).
