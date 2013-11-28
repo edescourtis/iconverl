@@ -28,6 +28,8 @@
 -spec open(iodata() | string(), iodata() | string()) -> {ok, any()} | {error, any()}.
 open(ToCode, FromCode) ->
     case iconverl:open(unicode:characters_to_list(ToCode), unicode:characters_to_list(FromCode)) of
+        {error, unsupported} ->
+            {error, einval};
         Error when is_tuple(Error) ->
             Error;
         Cd ->

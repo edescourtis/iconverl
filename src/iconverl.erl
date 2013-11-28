@@ -30,7 +30,7 @@
 %% -------------------------------------------------------------------------
 %% API
 %% -------------------------------------------------------------------------
--spec open(string() | binary(), string() | binary()) -> cd().
+-spec open(string() | binary(), string() | binary()) -> cd() | {error, unsupported | any()}.
 open(To, From) when is_binary(To), is_binary(From) ->
     open(unicode:characters_to_list(To), unicode:characters_to_list(From));
 open(To, From) when is_list(To), is_list(From) ->
