@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -62,14 +63,19 @@ static ErlNifFunc nif_funcs[] = {
     {"reset",          1, iconv_reset_nif }
 };
 
+typedef struct {
+    iconv_t conv_desc;
+    int ignore;
+} iconv_state_t;
+
 static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     unsigned int to_len;
     unsigned int from_len;
     char *to;
     char *from;
-    iconv_t conv_desc;
-    iconv_t *conv_desc_ref;
+    iconv_state_t *state_desc_ref;
+    iconv_state_t state;
     int res;
     ERL_NIF_TERM resource;
 
@@ -134,9 +140,16 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return make_error_tuple_from_string(env, "from_enif_get_string_cannot_encode");
     }
 
-    conv_desc = iconv_open(to, from);
+    state.ignore = 0;
+    if(strlen(to) > 6){
+        if(!strcasecmp(to + strlen(to) -6, "ignore")){
+            state.ignore = 1;
+        }
+    }
 
-    if(conv_desc == (iconv_t) -1){
+    state.conv_desc = iconv_open(to, from);
+
+    if(state.conv_desc == (iconv_t) -1){
         enif_free(to);
         enif_free(from);
 
@@ -148,14 +161,16 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         }
     }
 
-    conv_desc_ref = (iconv_t *)enif_alloc_resource(iconv_cd_type, sizeof(iconv_t));
-    *conv_desc_ref = conv_desc;
+
+
+    state_desc_ref = (iconv_state_t *)enif_alloc_resource(iconv_cd_type, sizeof(iconv_state_t));
+    *state_desc_ref = state;
 
     enif_free(to);
     enif_free(from);
 
-    resource = enif_make_resource(env, conv_desc_ref);
-    enif_release_resource(conv_desc_ref);
+    resource = enif_make_resource(env, state_desc_ref);
+    enif_release_resource(state_desc_ref);
 
     return resource;
 }
@@ -163,7 +178,7 @@ static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    iconv_t *cd_ptr = NULL;
+    iconv_state_t *cd_ptr = NULL;
     int res;
     size_t ret;
     ErlNifBinary in_bin;
@@ -178,7 +193,7 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     if(!enif_get_resource(env, argv[0], iconv_cd_type, (void **)&cd_ptr)) {
         return make_error_tuple_from_string(env, "bad_resource");
     }
-    assert(cd_ptr != NULL);
+    assert(cd_ptr->conv_desc != NULL);
 
     res = enif_inspect_binary(env, argv[1], &in_bin);
     if(res == 0){
@@ -194,7 +209,7 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     inbuf = (char *)in_bin.data;
     outbuf = (char *)out_bin.data;
 
-    ret = iconv(*cd_ptr, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    ret = iconv(cd_ptr->conv_desc, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     if(enif_realloc_binary(&out_bin, out_bin.size - outbytesleft) == 0){
         enif_release_binary(&out_bin);
         return make_error_tuple_from_string(env, "enif_realloc_binary");
@@ -213,6 +228,7 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                     final_bin
                 );
             case EILSEQ:
+                if(cd_ptr->ignore == 1) break;
                 return enif_make_tuple4(
                     env,
                     enif_make_atom(env, "ok"),
@@ -245,7 +261,7 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM iconv_reset_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    iconv_t *cd_ptr = NULL;
+    iconv_state_t *cd_ptr = NULL;
     size_t ret;
 
     assert(argc == 1);
@@ -254,7 +270,7 @@ static ERL_NIF_TERM iconv_reset_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
     assert(cd_ptr != NULL);
 
-    ret = iconv(*cd_ptr, NULL, NULL, NULL, NULL);
+    ret = iconv(cd_ptr->conv_desc, NULL, NULL, NULL, NULL);
     if(ret == (size_t) -1) {
         return make_error_tuple_from_errno(env, errno);
     }
@@ -286,8 +302,10 @@ static ERL_NIF_TERM make_error_tuple(ErlNifEnv* env, ERL_NIF_TERM error)
 static void garbage_collect_iconv_cd(ErlNifEnv *env, void *cd)
 {
     int res;
+    iconv_state_t *cd_ptr = (iconv_state_t *)cd;
 
-    res = iconv_close(*(iconv_t *)cd);
+
+    res = iconv_close(cd_ptr->conv_desc);
 
     if(res == -1){
         fprintf(
