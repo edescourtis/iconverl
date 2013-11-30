@@ -193,7 +193,7 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     if(!enif_get_resource(env, argv[0], iconv_cd_type, (void **)&cd_ptr)) {
         return make_error_tuple_from_string(env, "bad_resource");
     }
-    assert(cd_ptr->conv_desc != NULL);
+    assert(cd_ptr != NULL);
 
     res = enif_inspect_binary(env, argv[1], &in_bin);
     if(res == 0){
