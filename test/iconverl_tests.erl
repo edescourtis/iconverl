@@ -12,10 +12,13 @@ conv2_test() ->
     ?assertEqual({error, eilseq}, iconverl:conv(CD, <<129,129>>)).
 
 conv3_test() ->
-    ?assertEqual({error, unsupported}, iconverl:open("utf-99", "ucs-34")),
     ?assertEqual({ok, <<0,$t,0,$e,0,$s,0,$t>>},
-                 iconverl:conv("ucs-2be", "utf-8", <<"test">>)),
+                 iconverl:conv("ucs-2be", "utf-8", <<"test">>)).
+conv4_test() ->
     ?assertEqual({error, eilseq}, iconverl:conv("ucs-2be", "utf-8", <<129,129>>)).
+
+conv5_test() ->
+    ?assertEqual({ok, <<"ab">>}, iconverl:conv("ASCII//ignore", "UTF-8",<<97,226,152,160,98>>)).
 
 chunk_test() ->
     {ok, Utf8Bin1} = iconverl:conv("utf-8", "latin1", <<"test", 16#e9, "test">>),

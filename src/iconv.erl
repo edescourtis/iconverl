@@ -1,4 +1,4 @@
-%%% Copyright (c) 2013 Eric des Courtis <eric.des.courtis@benbria.ca>
+%%% Copyright (c) 2014 Eric des Courtis <eric.des.courtis@benbria.ca>
 %%%
 %%% Permission is hereby granted, free of charge, to any person obtaining a copy
 %%% of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,9 @@
 -module(iconv).
 
 -export([open/2, conv/2, close/1]).
+%% For legacy apps only (ones that call start(), start_link() and stop())
+%% NOTE: you don't actually need to run them.
+-export([start/0, start_link/0, stop/0]).
 
 -spec open(string() | binary(), string() | binary()) -> {ok, any()} | {error, any()}.
 open(ToCode, FromCode) when is_list(ToCode) or is_binary(ToCode),
@@ -42,3 +45,24 @@ conv(Cd, Input) ->
 -spec close(any()) -> ok | {error, any()}.
 close(_Cd) ->
     ok.
+
+%%%===================================================================
+%%% legacy iconv server callbacks
+%%%===================================================================
+
+%% Don't call this in new implementations it's there only for backwards compatibility
+-spec(start() ->
+  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+start() ->
+  iconv_null_srv:start().
+
+%% Don't call this in new implementations it's there only for backwards compatibility
+-spec(start_link() ->
+  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+start_link() ->
+  iconv_null_srv:start_link().
+
+%% Don't call this in new implementations it's there only for backwards compatibility
+-spec(stop() -> ok | {error, Reason :: term()}).
+stop() ->
+  iconv_null_srv:stop().

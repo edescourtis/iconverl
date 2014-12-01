@@ -1,4 +1,4 @@
-%%% Copyright (c) 2013 Eric des Courtis <eric.des.courtis@benbria.ca>
+%%% Copyright (c) 2013-2014 Eric des Courtis <eric.des.courtis@benbria.ca>
 %%%
 %%% Permission is hereby granted, free of charge, to any person obtaining a copy
 %%% of this software and associated documentation files (the "Software"), to deal
@@ -45,12 +45,12 @@ open_priv(To, From) when is_list(To), is_list(From) ->
     erlang:nif_error(not_loaded).
 
 -spec iconv(cd(), binary()) -> 
-    {ok, e2big, integer(), binary()} |
-    {ok, eilseq, integer(), binary()} |
-    {ok, einval, integer(), binary()} |
-    {ok, integer(), binary()} |
-    {error, atom()} | 
-    {error, integer()}.
+    {ok,    e2big,     integer(), binary()} |
+    {ok,    eilseq,    integer(), binary()} |
+    {ok,    einval,    integer(), binary()} |
+    {ok,    integer(), binary()           } |
+    {error, atom()                        } |
+    {error, integer()                     }.
 iconv(_Cd, _Binary) ->
     erlang:nif_error(not_loaded).
 
@@ -63,23 +63,24 @@ chunk(CD, Data, Acc) when is_binary(Data), is_list(Acc) ->
             chunk(
                 CD,
                 binary:part(Data, byte_size(Data) - Offset, Offset),
-                [Acc | OutputData]
+                [Acc | [OutputData | []]]
             );
         {ok, einval, _Offset, OutputData} ->
-            chunk(CD, <<>>, [Acc | OutputData], more);
+            chunk(CD, <<>>, [Acc | [OutputData | []]], more);
         {ok, 0, OutputData} ->
-            chunk(CD, <<>>, [Acc | OutputData], done);
+            chunk(CD, <<>>, [Acc | [OutputData | []]], done);
         {ok, Offset, OutputData} ->
             chunk(CD,
                 binary:part(Data, byte_size(Data) - Offset, Offset),
-                [Acc | OutputData]
+                [Acc | [OutputData | []]]
             );
         Other ->
             Other
     end.
 
 %% more means try again with the same data concatenated with more input
--spec chunk(cd(), iodata()) -> {done, iodata()} | {more, iodata()} | {error, atom()}.
+-spec chunk(cd(), iodata()) ->
+    {done, iodata()} | {more, iodata()} | {error, atom()} | {ok, eilseq, integer(), binary()}.
 chunk(CD, Data) when is_binary(Data) or is_list(Data)  ->
     chunk(CD, iolist_to_binary(Data), []).
 
@@ -94,9 +95,7 @@ conv(CD, Data) when is_binary(Data) or is_list(Data)  ->
         {ok,eilseq, _, _} ->
             {error, eilseq};
         {error, Reason} ->
-            {error, Reason};
-        _ ->
-            {error, conversion_error}
+            {error, Reason}
     end.
 
 -spec conv(string() | binary(), string() | binary(), iodata()) -> {ok, binary()} | {error, atom()}.
