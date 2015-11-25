@@ -57,11 +57,22 @@ static void garbage_collect_iconv_cd(ErlNifEnv *env, void *cd);
 static int handle_load(ErlNifEnv *env, void **priv, ERL_NIF_TERM load_info);
 static int handle_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
 
+/* ERL_NIF >= 2.8 */
+#if ERL_NIF_MAJOR_VERSION > 2 || \
+    (ERL_NIF_MAJOR_VERSION == 2 && \
+    (ERL_NIF_MINOR_VERSION > 8 || (ERL_NIF_MINOR_VERSION == 8)))
+static ErlNifFunc nif_funcs[] = {
+    {"open_priv",      2, iconv_open_nif,  0 },
+    {"iconv",          2, iconv_iconv_nif, 0 },
+    {"reset",          1, iconv_reset_nif, 0 }
+};
+#else
 static ErlNifFunc nif_funcs[] = {
     {"open_priv",      2, iconv_open_nif  },
     {"iconv",          2, iconv_iconv_nif },
     {"reset",          1, iconv_reset_nif }
 };
+#endif
 
 typedef struct {
     iconv_t conv_desc;
