@@ -50,6 +50,7 @@ static ErlNifResourceType *iconv_cd_type = NULL;
 static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM iconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM iconv_reset_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM iconv_ignores_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM make_error_tuple_from_errno(ErlNifEnv* env, int errn);
 static ERL_NIF_TERM make_error_tuple_from_string(ErlNifEnv* env, const char *error);
 static ERL_NIF_TERM make_error_tuple(ErlNifEnv* env, ERL_NIF_TERM error);
@@ -62,15 +63,17 @@ static int handle_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data
     (ERL_NIF_MAJOR_VERSION == 2 && \
     (ERL_NIF_MINOR_VERSION > 8 || (ERL_NIF_MINOR_VERSION == 8)))
 static ErlNifFunc nif_funcs[] = {
-    {"open_priv",      2, iconv_open_nif,  0 },
-    {"iconv",          2, iconv_iconv_nif, 0 },
-    {"reset",          1, iconv_reset_nif, 0 }
+    {"open_priv",      2, iconv_open_nif,    0 },
+    {"iconv",          2, iconv_iconv_nif,   0 },
+    {"reset",          1, iconv_reset_nif,   0 },
+    {"ignores",        1, iconv_ignores_nif, 0 }
 };
 #else
 static ErlNifFunc nif_funcs[] = {
-    {"open_priv",      2, iconv_open_nif  },
-    {"iconv",          2, iconv_iconv_nif },
-    {"reset",          1, iconv_reset_nif }
+    {"open_priv",      2, iconv_open_nif    },
+    {"iconv",          2, iconv_iconv_nif   },
+    {"reset",          1, iconv_reset_nif   },
+    {"ignores",        1, iconv_ignores_nif }
 };
 #endif
 
@@ -318,6 +321,24 @@ static ERL_NIF_TERM iconv_reset_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
 
     return enif_make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM iconv_ignores_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    iconv_state_t *cd_ptr = NULL;
+    size_t ret;
+
+    assert(argc == 1);
+    if(!enif_get_resource(env, argv[0], iconv_cd_type, (void **)&cd_ptr)) {
+        return make_error_tuple_from_string(env, "bad_resource");
+    }
+    assert(cd_ptr != NULL);
+
+    if(cd_ptr->ignore == 1){
+        return enif_make_atom(env, "true");
+    }else{
+        return enif_make_atom(env, "false");
+    }
 }
 
 

@@ -20,6 +20,25 @@ conv4_test() ->
 conv5_test() ->
     ?assertEqual({ok, <<"ab">>}, iconverl:conv("ASCII//ignore", "UTF-8",<<97,226,152,160,98>>)).
 
+conv6_test() ->
+    ?assertEqual({ok,<<"e8E">>}, iconverl:conv("ascii//translit//ignore", "utf-8", <<195, 168, 56, 195, 139>>)).
+
+conv7_test() ->
+    erlang:process_flag(max_heap_size, #{size => 1000000, kill => true, error_looger => true}),
+    application:ensure_all_started(crypto),
+    ?assertMatch(
+         {ok, _},
+         iconverl:conv("latin1//translit//ignore", "utf-8", crypto:strong_rand_bytes(32768))
+    ).
+
+conv8_test() ->
+    erlang:process_flag(max_heap_size, #{size => 1000000, kill => true, error_looger => true}),
+    application:ensure_all_started(crypto),
+    Input = crypto:strong_rand_bytes(32768),
+    {ok, Result} = iconverl:conv("latin1//translit//ignore", "utf-8", Input),
+    io:format("~p:~p~n", [byte_size(Result), byte_size(Input)]),
+    ?assert(byte_size(Result) =< byte_size(Input)).
+
 chunk_test() ->
     {ok, Utf8Bin1} = iconverl:conv("utf-8", "latin1", <<"test", 16#e9, "test">>),
     Utf8Bin2 = binary:part(Utf8Bin1, 0, 5),

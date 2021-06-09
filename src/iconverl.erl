@@ -22,7 +22,7 @@
 
 -on_load(load_nif/0).
 
--export([open/2, iconv/2, reset/1, chunk/2, conv/2, conv/3]).
+-export([open/2, iconv/2, reset/1, ignores/1, chunk/2, conv/2, conv/3]).
 
 -opaque cd() :: binary().
 -export_type([cd/0]).
@@ -54,25 +54,37 @@ open_priv(To, From) when is_list(To), is_list(From) ->
 iconv(_Cd, _Binary) ->
     erlang:nif_error(not_loaded).
 
-chunk(_CD, <<>>, Acc, Status) ->
+-spec ignores(cd()) -> true | false.
+ignores(_Cd) ->
+    erlang:nif_error(not_loaded).
+
+
+chunk(_CD, Acc, Status) ->
     {Status, Acc}.
 
-chunk(CD, Data, Acc) when is_binary(Data), is_list(Acc) ->
+chunk(CD, Data, Acc, PreviousOffset) when is_binary(Data), is_list(Acc) ->
     case iconverl:iconv(CD, Data) of
-        {ok, e2big, Offset, OutputData} ->
+        {ok, e2big, Offset0, OutputData} ->
+            Offset1 = case (PreviousOffset =:= Offset0) and ignores(CD) =:= true of
+              true -> Offset0 + 1;
+              false -> Offset0
+            end,
+            chunk(
+                CD,
+                binary:part(Data, byte_size(Data) - Offset1, Offset1),
+                [Acc | [OutputData | []]],
+                Offset1
+            );
+        {ok, einval, _Offset, OutputData} ->
+            chunk(CD, [Acc | [OutputData | []]], more);
+        {ok, 0, OutputData} ->
+            chunk(CD, [Acc | [OutputData | []]], done);
+        {ok, Offset, OutputData} ->
             chunk(
                 CD,
                 binary:part(Data, byte_size(Data) - Offset, Offset),
-                [Acc | [OutputData | []]]
-            );
-        {ok, einval, _Offset, OutputData} ->
-            chunk(CD, <<>>, [Acc | [OutputData | []]], more);
-        {ok, 0, OutputData} ->
-            chunk(CD, <<>>, [Acc | [OutputData | []]], done);
-        {ok, Offset, OutputData} ->
-            chunk(CD,
-                binary:part(Data, byte_size(Data) - Offset, Offset),
-                [Acc | [OutputData | []]]
+                [Acc | [OutputData | []]],
+                Offset
             );
         Other ->
             Other
@@ -82,7 +94,7 @@ chunk(CD, Data, Acc) when is_binary(Data), is_list(Acc) ->
 -spec chunk(cd(), iodata()) ->
     {done, iodata()} | {more, iodata()} | {error, atom()} | {ok, eilseq, integer(), binary()}.
 chunk(CD, Data) when is_binary(Data) or is_list(Data)  ->
-    chunk(CD, iolist_to_binary(Data), []).
+    chunk(CD, iolist_to_binary(Data), [], 0).
 
 
 -spec conv(cd(), iodata()) -> {ok, binary()} | {error, atom()}.
