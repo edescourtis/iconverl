@@ -239,7 +239,30 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                     final_bin
                 );
             case EILSEQ:
-                if(cd_ptr->ignore == 1) break;
+                if(cd_ptr->ignore == 1){
+                    if(inbytesleft == 0){
+                        ret = 0;
+                        break;
+                    }else{
+                        if(in_bin.size == inbytesleft){
+                            return enif_make_tuple4(
+                                env,
+                                enif_make_atom(env, "ok"),
+                                enif_make_atom(env, "e2big"),
+                                enif_make_uint64(env, (ErlNifUInt64)inbytesleft - 1),
+                                final_bin
+                            );
+                        }else{
+                            return enif_make_tuple4(
+                                env,
+                                enif_make_atom(env, "ok"),
+                                enif_make_atom(env, "e2big"),
+                                enif_make_uint64(env, (ErlNifUInt64)inbytesleft),
+                                final_bin
+                            );
+                        }
+                    }
+                }
                 return enif_make_tuple4(
                     env,
                     enif_make_atom(env, "ok"),
@@ -248,6 +271,14 @@ static ERL_NIF_TERM iconv_iconv_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                     final_bin
                 );
             case EINVAL:
+                if(cd_ptr->ignore == 1){
+                     return enif_make_tuple3(
+                        env,
+                        enif_make_atom(env, "ok"),
+                        enif_make_uint64(env, (ErlNifUInt64)inbytesleft - 1),
+                        final_bin
+                    );
+                }
                 return enif_make_tuple4(
                     env,
                     enif_make_atom(env, "ok"),
