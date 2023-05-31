@@ -1,6 +1,10 @@
 {application, iconverl,
  [{description, "An advanced iconv nif wrapper."},
-  {vsn, "3.0"},
+  {vsn, "3.0.21"},
   {applications, [kernel, stdlib]},
-  {registered, []}
+  {registered, []},
+  {licenses, ["MIT"]},
+  {maintainers, ["Eric des Courtis"]},
+  {links, [{"GitHub", "https://github.com/edescourtis/iconverl"}]}
 ]}.
+

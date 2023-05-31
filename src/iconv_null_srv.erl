@@ -89,10 +89,10 @@ stop() ->
 %% @doc
 %% Initializes the server
 %%
-%% @spec init(Args) -> {ok, State} |
-%%                     {ok, State, Timeout} |
-%%                     ignore |
-%%                     {stop, Reason}
+%% init(Args) -> {ok, State} |
+%%               {ok, State, Timeout} |
+%%               ignore |
+%%               {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
@@ -140,9 +140,9 @@ handle_cast(_Request, State) ->
 %% @doc
 %% Handling all non call/cast messages
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
+%% handle_info(Info, State) -> {noreply, State} |
+%%                             {noreply, State, Timeout} |
+%%                             {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
@@ -160,7 +160,7 @@ handle_info(_Info, State) ->
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
 %%
-%% @spec terminate(Reason, State) -> void()
+%% terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
@@ -173,7 +173,7 @@ terminate(_Reason, _State) ->
 %% @doc
 %% Convert process state when code is changed
 %%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
 -spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
