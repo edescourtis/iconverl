@@ -1,4 +1,27 @@
-ebin
+# Rebar3 build artifacts
+/_build/
+/rebar.lock
+
+# Erlang build artifacts
+/ebin/
+/deps/
+
+# Compiled C source files
 c_src/*.o
+c_src/*.so
 priv/*.so
+c_src/*.d
+
+# Other files and directories to ignore
 .eunit
+.priv
+.coverdata
+
+# Backup files from editors and OS
+*~
+\#*\#
+.\#*
+*.swp
+.DS_Store
+
+
