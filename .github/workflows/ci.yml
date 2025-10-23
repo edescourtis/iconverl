@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        otp: [26]
+        elixir: [1.16.2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+
+      - name: Cache rebar3
+        id: cache-rebar3
+        uses: actions/cache@v4
+        with:
+          path: rebar3
+          key: ${{ runner.os }}-rebar3
+
+      - name: Ensure rebar3
+        run: |
+          if [ ! -x ./rebar3 ]; then
+            curl -fsSL -o rebar3 https://github.com/erlang/rebar3/releases/latest/download/rebar3
+            chmod +x rebar3
+          fi
+
+      - name: Compile NIF via rebar3
+        run: ./rebar3 compile
+
+      - name: Mix deps (elixir_make)
+        run: mix deps.get
+
+      - name: Run ExUnit tests
+        run: mix test --color
+
+      - name: Run eunit tests
+        run: ./rebar3 eunit

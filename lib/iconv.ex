@@ -75,9 +75,8 @@ defmodule Iconv do
             {[IO.iodata_to_binary(out)], %{state | pending: <<>>}}
 
           {:more, out} ->
-            emitted = IO.iodata_to_binary(out)
-            emit = if emitted == "", do: [], else: [emitted]
-            {emit, %{state | pending: data}}
+            _ = out
+            {[], %{state | pending: data}}
 
           {:ok, :eilseq, _off, _out} ->
             raise ArgumentError, "iconv invalid sequence (eilseq)"
