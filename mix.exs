@@ -8,6 +8,8 @@ defmodule Iconverl.MixProject do
       elixir: ">= 1.12",
       start_permanent: Mix.env() == :prod,
       compilers: [:elixir_make] ++ Mix.compilers(),
+      make_targets: ["priv/iconverl.so"],
+      make_clean: ["clean"],
       erlc_paths: ["src"],
       deps: deps(),
       description: "Erlang NIF library for iconv with Elixir wrapper",
