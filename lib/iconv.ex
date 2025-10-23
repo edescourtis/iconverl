@@ -51,53 +51,113 @@ defmodule Iconv do
   def chunk(cd, data), do: :iconverl.chunk(cd, data)
 
   @doc """
-  Create a Stream that converts chunks from `from` to `to` encoding.
+  Create a Stream that converts elements from `enumerable` from `from` to `to`.
 
-  Options:
-  - `:chunk_size` - size in bytes to accumulate before converting (default 4096)
-  - `:finalize` - whether to finalize and flush at the end (default true)
+  Each element of `enumerable` should be iodata. The converter buffers input to
+  handle multibyte sequences that cross chunk boundaries. Emission behavior is
+  configurable via options:
+
+  - `:emit` – `:chunks` (default) or `:lines`
+  - `:chunk_size` – for `:chunks`, bytes per yielded chunk (default 4096)
+  - `:separator` – for `:lines`, binary separator (default "\n")
+  - `:include_separator` – for `:lines`, include the separator in emitted lines (default true)
+  - `:finalize` – finalize on end-of-stream and flush remainder (default true)
   """
   @spec stream(String.t() | iodata, String.t() | iodata, Enumerable.t(), keyword) :: Enumerable.t()
   def stream(to, from, enumerable, opts \\ []) do
     finalize? = Keyword.get(opts, :finalize, true)
+    emit_mode = Keyword.get(opts, :emit, :chunks)
+    chunk_size = Keyword.get(opts, :chunk_size, 4096)
+    sep = Keyword.get(opts, :separator, "\n")
+    include_sep? = Keyword.get(opts, :include_separator, true)
 
     Stream.transform(
       enumerable,
       fn ->
         {:ok, cd} = open(to, from)
-        %{cd: cd, pending: <<>>, finalize?: finalize?}
+        %{
+          cd: cd,
+          pending_in: <<>>,  # pending unconverted input to retry next step
+          out_buf: <<>>,     # converted data waiting to be emitted per policy
+          finalize?: finalize?,
+          emit_mode: emit_mode,
+          chunk_size: chunk_size,
+          sep: sep,
+          include_sep?: include_sep?
+        }
       end,
-      fn chunk, %{cd: cd, pending: pending} = state ->
-        data = IO.iodata_to_binary([pending, chunk])
+      fn chunk, state ->
+        %{cd: cd, pending_in: pending_in, out_buf: out_buf} = state
+        data = IO.iodata_to_binary([pending_in, chunk])
 
-        case :iconverl.chunk(cd, data) do
-          {:done, out} ->
-            {[IO.iodata_to_binary(out)], %{state | pending: <<>>}}
+        {out_buf2, pending_in2} =
+          case :iconverl.chunk(cd, data) do
+            {:done, out} -> {out_buf <> IO.iodata_to_binary(out), <<>>}
+            {:more, out} -> {out_buf <> IO.iodata_to_binary(out), data}
+            {:ok, :eilseq, _off, _out} -> raise ArgumentError, "iconv invalid sequence (eilseq)"
+            {:error, reason} -> raise "iconv error: #{inspect(reason)}"
+          end
 
-          {:more, out} ->
-            _ = out
-            {[], %{state | pending: data}}
+        {emitted, rest_buf} =
+          case state.emit_mode do
+            :chunks -> emit_from_buffer_chunks(out_buf2, state.chunk_size)
+            :lines -> emit_from_buffer_lines(out_buf2, state.sep, state.include_sep?)
+          end
 
-          {:ok, :eilseq, _off, _out} ->
-            raise ArgumentError, "iconv invalid sequence (eilseq)"
-
-          {:error, reason} ->
-            raise "iconv error: #{inspect(reason)}"
-        end
+        {emitted, %{state | out_buf: rest_buf, pending_in: pending_in2}}
       end,
-      fn %{cd: cd, pending: pending, finalize?: fin?} ->
+      fn state ->
+        %{cd: cd, pending_in: pending_in, out_buf: out_buf, finalize?: fin?} = state
+
+        leftover =
+          case state.emit_mode do
+            :chunks -> if out_buf == <<>>, do: [], else: [out_buf]
+            :lines ->
+              {lines, rest} = emit_from_buffer_lines(out_buf, state.sep, state.include_sep?)
+              if rest != <<>>, do: lines ++ [rest], else: lines
+          end
+
         if fin? do
-          if byte_size(pending) > 0 do
+          if byte_size(pending_in) > 0 do
             raise ArgumentError, "iconv incomplete sequence (einval) at end of stream"
           else
             _ = reset(cd)
-            []
+            leftover
           end
         else
-          []
+          leftover
         end
       end
     )
+  end
+
+  defp emit_from_buffer_chunks(out_buf, n) when is_integer(n) and n > 0 do
+    size = byte_size(out_buf)
+    if size < n do
+      {[], out_buf}
+    else
+      {to_emit, rest} = split_fixed(out_buf, n, [])
+      {Enum.reverse(to_emit), rest}
+    end
+  end
+
+  defp split_fixed(<<>>, _n, acc), do: {acc, <<>>}
+  defp split_fixed(bin, n, acc) when byte_size(bin) < n, do: {acc, bin}
+  defp split_fixed(bin, n, acc) do
+    <<chunk::binary-size(n), rest::binary>> = bin
+    split_fixed(rest, n, [chunk | acc])
+  end
+
+  defp emit_from_buffer_lines(out_buf, sep, include_sep?) when is_binary(sep) do
+    segments = :binary.split(out_buf, sep, [:global])
+    case segments do
+      [_only] -> {[], out_buf}
+      _ ->
+        rest = List.last(segments)
+        lines_wo_sep = Enum.drop_last(segments, 1)
+        lines = if include_sep?, do: Enum.map(lines_wo_sep, &(&1 <> sep)), else: lines_wo_sep
+        {lines, rest}
+    end
   end
 
   defp convert_until_emit(%{cd: cd, buffer: buffer, chunk_size: chunk_size} = state, chunks) do
