@@ -59,43 +59,45 @@ defmodule Iconv do
   """
   @spec stream(String.t() | iodata, String.t() | iodata, Enumerable.t(), keyword) :: Enumerable.t()
   def stream(to, from, enumerable, opts \\ []) do
-    chunk_size = Keyword.get(opts, :chunk_size, 4096)
     finalize? = Keyword.get(opts, :finalize, true)
 
-    Stream.resource(
+    Stream.transform(
+      enumerable,
       fn ->
         {:ok, cd} = open(to, from)
-        %{cd: cd, buffer: <<>>, chunk_size: chunk_size, done: false}
+        %{cd: cd, pending: <<>>, finalize?: finalize?}
       end,
-      fn %{done: true} = state ->
-        {:halt, state}
-        
-      state ->
-        next_chunk =
-          case Enum.fetch(enumerable, 0) do
-            {:ok, _} -> enumerable
-            :error -> []
-          end
+      fn chunk, %{cd: cd, pending: pending} = state ->
+        data = IO.iodata_to_binary([pending, chunk])
 
-        case next_chunk do
-          [] ->
-            state =
-              if finalize? do
-                case reset(state.cd) do
-                  :ok -> %{state | done: true}
-                  {:error, _} -> %{state | done: true}
-                end
-              else
-                %{state | done: true}
-              end
-            {[], state}
+        case :iconverl.chunk(cd, data) do
+          {:done, out} ->
+            {[IO.iodata_to_binary(out)], %{state | pending: <<>>}}
 
-          _ ->
-            {emitted, new_state} = convert_until_emit(state, next_chunk)
-            {emitted, new_state}
+          {:more, out} ->
+            emitted = IO.iodata_to_binary(out)
+            emit = if emitted == "", do: [], else: [emitted]
+            {emit, %{state | pending: data}}
+
+          {:ok, :eilseq, _off, _out} ->
+            raise ArgumentError, "iconv invalid sequence (eilseq)"
+
+          {:error, reason} ->
+            raise "iconv error: #{inspect(reason)}"
         end
       end,
-      fn _ -> :ok end
+      fn %{cd: cd, pending: pending, finalize?: fin?} ->
+        if fin? do
+          if byte_size(pending) > 0 do
+            raise ArgumentError, "iconv incomplete sequence (einval) at end of stream"
+          else
+            _ = reset(cd)
+            []
+          end
+        else
+          []
+        end
+      end
     )
   end
 
