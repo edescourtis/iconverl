@@ -78,7 +78,7 @@ defmodule Iconv do
         %{
           cd: cd,
           pending_in: <<>>,  # pending unconverted input to retry next step
-          out_buf: <<>>,     # converted data waiting to be emitted per policy
+          out_buf: [],       # converted data waiting to be emitted per policy (iodata)
           finalize?: finalize?,
           emit_mode: emit_mode,
           chunk_size: chunk_size,
@@ -92,16 +92,18 @@ defmodule Iconv do
 
         {out_buf2, pending_in2} =
           case :iconverl.chunk(cd, data) do
-            {:done, out} -> {out_buf <> IO.iodata_to_binary(out), <<>>}
-            {:more, out} -> {out_buf <> IO.iodata_to_binary(out), data}
+            {:done, out} -> {[out_buf, out], <<>>}
+            {:more, out} -> {[out_buf, out], data}
             {:ok, :eilseq, _off, _out} -> raise ArgumentError, "iconv invalid sequence (eilseq)"
             {:error, reason} -> raise "iconv error: #{inspect(reason)}"
           end
 
+        bin = IO.iodata_to_binary(out_buf2)
+
         {emitted, rest_buf} =
           case state.emit_mode do
-            :chunks -> emit_from_buffer_chunks(out_buf2, state.chunk_size)
-            :lines -> emit_from_buffer_lines(out_buf2, state.sep, state.include_sep?)
+            :chunks -> emit_from_buffer_chunks(bin, state.chunk_size)
+            :lines -> emit_from_buffer_lines(bin, normalize_sep(state.sep), state.include_sep?)
           end
 
         {emitted, %{state | out_buf: rest_buf, pending_in: pending_in2}}
@@ -109,11 +111,13 @@ defmodule Iconv do
       fn state ->
         %{cd: cd, pending_in: pending_in, out_buf: out_buf, finalize?: fin?} = state
 
+        bin = IO.iodata_to_binary(out_buf)
+
         leftover =
           case state.emit_mode do
-            :chunks -> if out_buf == <<>>, do: [], else: [out_buf]
+            :chunks -> if bin == <<>>, do: [], else: [bin]
             :lines ->
-              {lines, rest} = emit_from_buffer_lines(out_buf, state.sep, state.include_sep?)
+              {lines, rest} = emit_from_buffer_lines(bin, normalize_sep(state.sep), state.include_sep?)
               if rest != <<>>, do: lines ++ [rest], else: lines
           end
 
@@ -159,6 +163,12 @@ defmodule Iconv do
         {lines, rest}
     end
   end
+
+  # Normalize special separators (:lf, :crlf, or explicit binary)
+  defp normalize_sep(:lf), do: "\n"
+  defp normalize_sep(:crlf), do: "\r\n"
+  defp normalize_sep(bin) when is_binary(bin), do: bin
+  defp normalize_sep(_), do: "\n"
 
   defp convert_until_emit(%{cd: cd, buffer: buffer, chunk_size: chunk_size} = state, chunks) do
     {to_convert, rest} = take_bytes(buffer, chunks, chunk_size)
